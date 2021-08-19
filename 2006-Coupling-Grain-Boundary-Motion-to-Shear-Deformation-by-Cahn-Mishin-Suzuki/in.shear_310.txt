@@ -1,0 +1,59 @@
+# LAMMPS INPUT FILE FOR GRAIN BOUNDARIES
+# SIGMA 5 WITH ORIENTATION [3 1 0]
+# APPLICATION OF SHEAR STRESS
+
+# ---------------------------- INITIALIZATION ----------------------------------
+
+echo                                both
+units                               metal
+dimension                           3
+boundary                            s s s
+atom_style                          atomic
+
+# ---------------------------- ATOM DEFINITION ---------------------------------
+
+read_data                           read_data_Cu
+
+region                              1 block 0 51 40 51 0 50 units box
+region                              2 block 0 51 0 39 0 50 units box
+region                              3 block 0 51 -39 -1 0 50 units box
+region                              4 block 0 51 -51 -40 0 50 units box
+
+group                               upper region 1
+group                               lower region 2
+group                               top region 3
+group                               bottom region 4
+
+group                               mobile subtract all bottom
+
+# -------------------------------- FORCE FIELDS --------------------------------
+
+pair_style                           eam/fs
+pair_coeff                           * * Mendelev_Cu2_2012.eam.fs Cu 
+
+# ---------------------------------- SETTINGS ----------------------------------
+
+compute                              csym all centro/atom fcc
+compute                              peratom all pe/atom
+compute                              eng all pe/atom
+compute                              eatoms all reduce sum c_eng
+
+# --------------------------------- DEFORMATION --------------------------------
+# all fixes must always be after the velocity commands
+
+compute                              new mobile temp
+velocity                             mobile create 200 12345 temp new
+velocity                             bottom set 5.0 0.0 0.0
+velocity                             mobile ramp vx 5 0 y -39 51 sum yes
+
+fix                                  1 top setforce 0.0 0.0 0.0
+
+fix                                  2 all nve
+
+thermo                               100
+dump                                 1 all cfg 50 dump.Ni.shear_*.cfg mass type xs ys zs c_csym c_peratom fx fy fz
+dump_modify                          1 element Cu
+
+run                                  1000
+# ------------------------------- SIMULATION DONE ------------------------------
+print  "All Done"
